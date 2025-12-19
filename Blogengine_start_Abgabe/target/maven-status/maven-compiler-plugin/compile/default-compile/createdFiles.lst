@@ -12,5 +12,4 @@ dhbw\einpro\blogengine\impl\Post.class
 dhbw\einpro\blogengine\App.class
 dhbw\einpro\blogengine\impl\User.class
 dhbw\einpro\blogengine\BlogEngineHelper.class
-dhbw\einpro\blogengine\impl\UserHelper.class
 dhbw\einpro\blogengine\exceptions\DuplicateEmailException.class
