@@ -1,42 +1,31 @@
 package dhbw.einpro.blogengine.impl;
 
-import dhbw.einpro.blogengine.impl.User;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class UserTest {
-    /**
-     * Testet, ob compareTo die Benutzer in der Reihenfolge
-     * Nachname -> Vorname -> Email-Adresse vergleicht.
-     *
-     * AAA-Schema:
-     *  - Arrange: Testdaten anlegen
-     *  - Act: compareTo aufrufen
-     *  - Assert: Ergebnis prüfen
-     */
+class UserTest {
+
     @Test
+    @DisplayName("compareTo sortiert nach Nachname -> Vorname -> Email")
     void compareTo_sollNachNameVornameEmailSortieren() {
         // Arrange
         User user1 = new User("Anna", "Meier", "anna@example.com");
-        User user2 = new User("Bernd", "Meier", "bernd@example.com");   // gleicher Nachname, anderer Vorname
-        User user3 = new User("Anna", "Meier", "zeta@example.com");     // gleicher Nachname & Vorname, andere Email
-        User user4 = new User("Anna", "Meier", "anna@example.com");     // komplett identisch zu user1
+        User user2 = new User("Bernd", "Meier", "bernd@example.com");
+        User user3 = new User("Anna", "Meier", "zeta@example.com");
+        User user4 = new User("Anna", "Meier", "anna@example.com");
 
-        // Act + Assert
+        // Act
+        int result1 = user1.compareTo(user2);
+        int result2 = user2.compareTo(user1);
+        int result3 = user1.compareTo(user3);
+        int result4 = user1.compareTo(user4);
 
-        // 1) Nachname gleich, Vorname unterschiedlich -> "Anna" < "Bernd"
-        assertTrue(user1.compareTo(user2) < 0,
-                "user1 (Anna Meier) sollte vor user2 (Bernd Meier) kommen");
-        assertTrue(user2.compareTo(user1) > 0,
-                "user2 (Bernd Meier) sollte nach user1 (Anna Meier) kommen");
-
-        // 2) Nachname & Vorname gleich, Email unterschiedlich -> "anna@" < "zeta@"
-        assertTrue(user1.compareTo(user3) < 0,
-                "Bei gleichem Namen sollte die Email die Reihenfolge bestimmen");
-
-        // 3) Vollständig gleiche Daten -> compareTo == 0
-        assertEquals(0, user1.compareTo(user4),
-                "Zwei identische Benutzer sollten compareTo == 0 liefern");
+        // Assert
+        assertTrue(result1 < 0, "Anna Meier sollte vor Bernd Meier kommen");
+        assertTrue(result2 > 0, "Bernd Meier sollte nach Anna Meier kommen");
+        assertTrue(result3 < 0, "Bei gleichen Namen entscheidet die Email");
+        assertEquals(0, result4, "Identische User sollten compareTo == 0 liefern");
     }
 }
