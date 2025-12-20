@@ -6,11 +6,15 @@ import dhbw.einpro.blogengine.exceptions.IllegalOperationException;
 import dhbw.einpro.blogengine.exceptions.PostNotFoundException;
 import dhbw.einpro.blogengine.exceptions.UserNotFoundException;
 import dhbw.einpro.blogengine.interfaces.IUser;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class BlogEngineTest {
+
+    private BlogEngine blogEngine;
 
     // FakeUser: zweite IUser-Implementierung (nicht User),
     // damit wir Spezifikations-Gleichheit (Email+Vorname+Nachname) testen.
@@ -33,10 +37,29 @@ class BlogEngineTest {
         @Override public void setLastName(String p_lastName) { this.lastName = p_lastName; }
     }
 
+    @BeforeEach
+    void setUp() {
+        blogEngine = new BlogEngine();
+    }
+
+    /**
+     * Helfer, falls die Reihenfolge der Validierungen nicht spezifiziert ist
+     * (z.B. DuplicateUser vs DuplicateEmail).
+     * Kein try/catch im Testkörper nötig.
+     */
+    private static void assertThrowsAnyOf(Class<? extends Throwable> a,
+                                          Class<? extends Throwable> b,
+                                          Executable executable) {
+        Throwable t = assertThrows(Throwable.class, executable);
+        if (!a.isInstance(t) && !b.isInstance(t)) {
+            fail("Expected " + a.getSimpleName() + " or " + b.getSimpleName()
+                    + " but got " + t.getClass().getSimpleName() + ": " + t.getMessage(), t);
+        }
+    }
+
     @Test
     void addUser_sollUserSpeichernUndSizeErhoehen() throws DuplicateEmailException, DuplicateUserException {
         // Arrange
-        BlogEngine blogEngine = new BlogEngine();
         User user = new User("Max", "Meier", "max@example.com");
 
         // Act
@@ -51,9 +74,8 @@ class BlogEngineTest {
     @Test
     void addUser_sollDuplicateEmailExceptionBeiGleicherEmailWerfen() throws DuplicateEmailException, DuplicateUserException {
         // Arrange
-        BlogEngine blogEngine = new BlogEngine();
         User user1 = new User("Max", "Meier", "max@example.com");
-        User user2 = new User("Lisa", "Muster", "max@example.com"); // gleiche Email
+        User user2 = new User("Lisa", "Muster", "max@example.com"); // gleiche Email (aber anderer Name)
 
         blogEngine.addUser(user1);
 
@@ -65,25 +87,20 @@ class BlogEngineTest {
     void addUser_sollDuplicateUserOderDuplicateEmailWerfenWennGleicherUserNochmalHinzugefuegtWird()
             throws DuplicateEmailException, DuplicateUserException {
         // Arrange
-        BlogEngine blogEngine = new BlogEngine();
         User user = new User("Max", "Meier", "max@example.com");
         blogEngine.addUser(user);
 
         // Act + Assert
-        try {
-            blogEngine.addUser(user);
-            fail("Es hätte eine DuplicateUserException oder DuplicateEmailException geworfen werden müssen.");
-        } catch (DuplicateUserException | DuplicateEmailException expected) {
-            // ok: Javadoc legt keine Priorität/Reihenfolge fest
-        }
+        assertThrowsAnyOf(DuplicateUserException.class, DuplicateEmailException.class,
+                () -> blogEngine.addUser(user));
     }
 
     @Test
     void removePost_sollAuchMitFremdemIUserObjektAlsAutorLoeschenDuerfen()
-            throws DuplicateEmailException, DuplicateUserException, UserNotFoundException, PostNotFoundException, IllegalOperationException {
+            throws DuplicateEmailException, DuplicateUserException, UserNotFoundException,
+            PostNotFoundException, IllegalOperationException {
 
         // Arrange
-        BlogEngine blogEngine = new BlogEngine();
         User author = new User("Max", "Meier", "max@example.com");
         blogEngine.addUser(author);
 
