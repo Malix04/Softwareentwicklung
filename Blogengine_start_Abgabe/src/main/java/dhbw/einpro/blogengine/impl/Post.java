@@ -1,12 +1,10 @@
 package dhbw.einpro.blogengine.impl;
 
-/**
- * Klasse repräsentiert ein Post.
- */
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
-import java.util.TreeMap; // bleibt einfach drin, auch wenn wir es nicht benutzen
+import java.util.Objects;
 
 import dhbw.einpro.blogengine.exceptions.IllegalOperationException;
 import dhbw.einpro.blogengine.exceptions.UserNotFoundException;
@@ -20,10 +18,6 @@ import dhbw.einpro.blogengine.interfaces.IUser;
  */
 public class Post implements IPost
 {
-
-    /**
-     *
-     */
     private static final long serialVersionUID = 1L;
 
     /** Id des Posts (wird von der BlogEngine gesetzt). */
@@ -74,6 +68,49 @@ public class Post implements IPost
     }
 
     // --------------------------------------------------------
+    // IUser-Vergleich nach Spezifikation (Email + Vorname + Nachname)
+    // --------------------------------------------------------
+
+    private static boolean sameUser(IUser a, IUser b)
+    {
+        if (a == b)
+        {
+            return true;
+        }
+        if (a == null || b == null)
+        {
+            return false;
+        }
+        return Objects.equals(a.getEmail(), b.getEmail())
+                && Objects.equals(a.getFirstName(), b.getFirstName())
+                && Objects.equals(a.getLastName(), b.getLastName());
+    }
+
+    private static boolean listContainsUser(List<IUser> list, IUser u)
+    {
+        for (IUser x : list)
+        {
+            if (sameUser(x, u))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void listRemoveUser(List<IUser> list, IUser u)
+    {
+        for (Iterator<IUser> it = list.iterator(); it.hasNext();)
+        {
+            IUser x = it.next();
+            if (sameUser(x, u))
+            {
+                it.remove();
+            }
+        }
+    }
+
+    // --------------------------------------------------------
     // Implementierung von IPost
     // --------------------------------------------------------
 
@@ -92,7 +129,7 @@ public class Post implements IPost
     @Override
     public List<IComment> getComments()
     {
-        // Kommentare in Einfüge-Reihenfolge zurückgeben
+        // Kommentare in Einfüge-Reihenfolge zurückgeben (wie bisher)
         return comments;
     }
 
@@ -106,23 +143,23 @@ public class Post implements IPost
 
         IUser commentAuthor = p_comment.getAuthor();
 
-        // 1. Autor-Prüfung: Kommentar-Autor darf nicht der Post-Autor sein.
-        if (author != null && author.equals(commentAuthor))
+        // 1) Autor-Prüfung: Kommentar-Autor darf nicht der Post-Autor sein (nach Spezifikation!)
+        if (author != null && sameUser(author, commentAuthor))
         {
             throw new IllegalOperationException("Der Autor des Kommentars darf nicht gleichzeitig Autor des Posts sein.");
         }
 
-        // 2. Inhalt-Längenprüfung: Inhalt darf maximal 256 Zeichen umfassen.
+        // 2) Inhalt-Längenprüfung: Inhalt darf maximal 256 Zeichen umfassen.
         String commentContent = p_comment.getContent();
         if (commentContent != null && commentContent.length() > 256)
         {
             throw new IllegalOperationException("Der Kommentar darf maximal 256 Zeichen umfassen.");
         }
 
-        // 3. Prüfen, ob der Autor des Kommentars in der Blog-Engine registriert ist.
+        // 3) Prüfen, ob der Autor des Kommentars in der Blog-Engine registriert ist.
         ensureUserRegistered(commentAuthor);
 
-        // 4. Kommentar dem Post zuordnen und intern speichern.
+        // 4) Kommentar dem Post zuordnen und intern speichern.
         p_comment.setPost(this);
         comments.add(p_comment);
     }
@@ -135,9 +172,9 @@ public class Post implements IPost
             throw new IllegalOperationException("Benutzer und Kommentar dürfen nicht null sein.");
         }
 
-        // Nur der Autor des Kommentars darf diesen entfernen.
+        // Nur der Autor des Kommentars darf diesen entfernen (nach Spezifikation!)
         IUser commentAuthor = p_comment.getAuthor();
-        if (commentAuthor == null || !p_user.equals(commentAuthor))
+        if (!sameUser(p_user, commentAuthor))
         {
             throw new IllegalOperationException("Nur der Autor des Kommentars darf diesen entfernen.");
         }
@@ -150,11 +187,11 @@ public class Post implements IPost
     {
         validateReactionUser(p_person);
 
-        // Wenn der Benutzer in Dislikes war, zuerst entfernen
-        disLikes.remove(p_person);
+        // Robust: ggf. vorhandenen Dislike entfernen (auch wenn anderes IUser-Objekt)
+        listRemoveUser(disLikes, p_person);
 
-        // Benutzer nur einmal in die Likes-Liste aufnehmen
-        if (!likes.contains(p_person))
+        // Robust: nur einmal liken (nach Spezifikation)
+        if (!listContainsUser(likes, p_person))
         {
             likes.add(p_person);
         }
@@ -165,11 +202,11 @@ public class Post implements IPost
     {
         validateReactionUser(p_person);
 
-        // Wenn der Benutzer in Likes war, zuerst entfernen
-        likes.remove(p_person);
+        // Robust: ggf. vorhandenen Like entfernen (auch wenn anderes IUser-Objekt)
+        listRemoveUser(likes, p_person);
 
-        // Benutzer nur einmal in die Dislikes-Liste aufnehmen
-        if (!disLikes.contains(p_person))
+        // Robust: nur einmal disliken (nach Spezifikation)
+        if (!listContainsUser(disLikes, p_person))
         {
             disLikes.add(p_person);
         }
@@ -248,8 +285,8 @@ public class Post implements IPost
             throw new IllegalOperationException("Benutzer darf nicht null sein.");
         }
 
-        // Autor des Posts darf den eigenen Post nicht bewerten.
-        if (author != null && author.equals(user))
+        // Autor des Posts darf den eigenen Post nicht bewerten (nach Spezifikation!)
+        if (author != null && sameUser(author, user))
         {
             throw new IllegalOperationException("Der Autor des Posts darf den eigenen Post nicht bewerten.");
         }

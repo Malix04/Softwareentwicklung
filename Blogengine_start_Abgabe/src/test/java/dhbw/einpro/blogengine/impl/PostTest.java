@@ -16,13 +16,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class PostTest {
 
     private BlogEngine engine;
-    private User author;      // Autor des Posts (registriert)
-    private User user;        // normaler User (registriert)
-    private Post post;        // Test-Post
+    private User author;
+    private User user;
+    private Post post;
 
     @BeforeEach
     void setUp() throws DuplicateEmailException, DuplicateUserException {
-        // Arrange (gemeinsames Setup; jeder Test startet frisch)
         engine = new BlogEngine();
 
         author = new User("Max", "Mustermann", "max@mustermann.de");
@@ -34,15 +33,17 @@ class PostTest {
         post = new Post("Titel", "Inhalt", author, engine);
     }
 
-    // --- Helper: Java-8/11 kompatibles "repeat" ---
+    // Helper: Java 11 kompatibles repeat ohne String.repeat()
     private static String repeatChar(char c, int n) {
         StringBuilder sb = new StringBuilder(n);
         for (int i = 0; i < n; i++) sb.append(c);
         return sb.toString();
     }
 
-    // --- Stub-Comment, damit wir >256 Zeichen testen können,
-    //     ohne dass der echte Comment-Konstruktor vorher schon abbricht.
+    /**
+     * StubComment: damit wir >256 testen können, ohne dass Comment() schon vorher wirft.
+     * Wichtig: MUSS exakt zu IComment passen -> kein getPost()!
+     */
     private static final class StubComment implements IComment {
         private static final long serialVersionUID = 1L;
 
@@ -63,7 +64,7 @@ class PostTest {
 
         @Override
         public void setContent(String p_content) {
-            // absichtlich KEINE 256-Prüfung (damit Post.addComment die Regel testen kann)
+            // absichtlich keine 256-Prüfung -> soll Post.addComment testen
             this.content = p_content;
         }
 
@@ -83,29 +84,48 @@ class PostTest {
         }
     }
 
+    /**
+     * Schritt 4: FakeUser als zweite IUser-Implementierung (nicht dhbw...impl.User),
+     * um sicherzustellen, dass eure Logik NICHT auf equals() basiert.
+     */
+    private static final class FakeUser implements IUser {
+        private String firstName;
+        private String lastName;
+        private String email;
+
+        private FakeUser(String firstName, String lastName, String email) {
+            this.firstName = firstName;
+            this.lastName = lastName;
+            this.email = email;
+        }
+
+        @Override public String getEmail() { return email; }
+        @Override public void setEmail(String p_email) { this.email = p_email; }
+        @Override public String getFirstName() { return firstName; }
+        @Override public void setFirstName(String p_firstName) { this.firstName = p_firstName; }
+        @Override public String getLastName() { return lastName; }
+        @Override public void setLastName(String p_lastName) { this.lastName = p_lastName; }
+    }
+
     @Test
     @DisplayName("addComment: nicht registrierter Autor -> UserNotFoundException")
     void addComment_sollUserNotFoundWerfenWennAutorNichtRegistriert() throws IllegalOperationException {
         // Arrange
-        User stranger = new User("Anna", "NichtDa", "anna@nichts.de"); // NICHT registriert
+        User stranger = new User("Anna", "NichtDa", "anna@nichts.de"); // nicht registriert
         Comment comment = new Comment("ok", stranger);
 
         // Act + Assert
-        assertThrows(UserNotFoundException.class,
-                () -> post.addComment(comment),
-                "Nicht registrierter Kommentar-Autor muss UserNotFoundException auslösen");
+        assertThrows(UserNotFoundException.class, () -> post.addComment(comment));
     }
 
     @Test
     @DisplayName("addComment: Kommentarautor = Postautor -> IllegalOperationException")
     void addComment_sollIllegalOperationWerfenWennKommentarAutorGleichPostAutor() throws Exception {
         // Arrange
-        Comment comment = new Comment("ok", author); // author ist registriert
+        Comment comment = new Comment("ok", author);
 
         // Act + Assert
-        assertThrows(IllegalOperationException.class,
-                () -> post.addComment(comment),
-                "Kommentarautor darf nicht gleichzeitig Postautor sein");
+        assertThrows(IllegalOperationException.class, () -> post.addComment(comment));
     }
 
     @Test
@@ -113,12 +133,10 @@ class PostTest {
     void addComment_sollIllegalOperationWerfenWennKommentarZuLangIst() {
         // Arrange
         String tooLong = repeatChar('x', 257);
-        IComment comment = new StubComment(tooLong, user); // user ist registriert
+        IComment comment = new StubComment(tooLong, user);
 
         // Act + Assert
-        assertThrows(IllegalOperationException.class,
-                () -> post.addComment(comment),
-                "Kommentarinhalt > 256 Zeichen muss IllegalOperationException auslösen");
+        assertThrows(IllegalOperationException.class, () -> post.addComment(comment));
     }
 
     @Test
@@ -129,40 +147,84 @@ class PostTest {
         post.addComment(comment);
 
         // Act + Assert
-        assertThrows(IllegalOperationException.class,
-                () -> post.removeComment(author, comment),
-                "Nur der Autor des Kommentars darf entfernen");
+        assertThrows(IllegalOperationException.class, () -> post.removeComment(author, comment));
     }
 
     @Test
     @DisplayName("like: entfernt disLike und setzt like (Score korrekt)")
     void like_sollDislikeEntfernenUndScoreAktualisieren() throws Exception {
-        // Arrange (Precondition)
+        // Arrange
         post.disLike(user);
 
         // Act
         post.like(user);
 
         // Assert
-        assertEquals(1, post.getLikes().size(), "User soll genau 1x in Likes stehen");
-        assertEquals(0, post.getDisLikes().size(), "Dislikes sollen entfernt worden sein");
-        assertEquals(10, post.getScore(), "Score muss (1 - 0) * 10 = 10 sein");
+        assertEquals(1, post.getLikes().size());
+        assertEquals(0, post.getDisLikes().size());
+        assertEquals(10, post.getScore());
+    }
+
+    // ------- Schritt 4 Robustheitstests (FakeUser) -------
+
+    @Test
+    @DisplayName("ROBUST: like mit FakeUser (gleiche Daten) -> kein Duplikat")
+    void like_robust_sollNichtDoppeltLikenAuchMitFakeUser() throws Exception {
+        // Arrange
+        IUser u1 = new FakeUser("Erika", "Muster", "erika@muster.de");
+        IUser u2 = new FakeUser("Erika", "Muster", "erika@muster.de");
+
+        // Act
+        post.like(u1);
+        post.like(u2);
+
+        // Assert
+        assertEquals(1, post.getLikes().size());
+        assertEquals(0, post.getDisLikes().size());
+        assertEquals(10, post.getScore());
     }
 
     @Test
-    @DisplayName("ROBUST: addComment mit mehreren Fehlerbedingungen -> IllegalOperation ODER UserNotFound")
-    void addComment_robust_sollIllegalOperationOderUserNotFoundWerfenWennMehrereRegelnVerletzt() {
-        // Arrange (hier werden absichtlich 2 Regeln verletzt)
-        String tooLong = repeatChar('y', 257);
-        User stranger = new User("Tim", "Unregistered", "tim@none.de"); // nicht registriert
-        IComment comment = new StubComment(tooLong, stranger);
+    @DisplayName("ROBUST: disLike entfernt vorherigen like auch mit FakeUser")
+    void disLike_robust_sollLikeEntfernenAuchBeiFakeUser() throws Exception {
+        // Arrange
+        IUser u1 = new FakeUser("Erika", "Muster", "erika@muster.de");
+        IUser u2 = new FakeUser("Erika", "Muster", "erika@muster.de");
 
-        // Act + Assert (robust gegen Prüf-Reihenfolge)
-        try {
-            post.addComment(comment);
-            fail("Es hätte IllegalOperationException oder UserNotFoundException geworfen werden müssen.");
-        } catch (IllegalOperationException | UserNotFoundException expected) {
-            // ok: Reihenfolge der Checks ist nicht spezifiziert -> beides zulässig
-        }
+        // Act
+        post.like(u1);
+        post.disLike(u2);
+
+        // Assert
+        assertEquals(0, post.getLikes().size());
+        assertEquals(1, post.getDisLikes().size());
+        assertEquals(-10, post.getScore());
+    }
+
+    @Test
+    @DisplayName("ROBUST: Kommentarautor (FakeUser) == Postautor (gleiche Daten) -> IllegalOperationException")
+    void addComment_robust_sollWerfenWennKommentarAutorSpezifikationsgleichPostAutor() {
+        // Arrange
+        IUser sameAsAuthorButNotUser = new FakeUser("Max", "Mustermann", "max@mustermann.de");
+        IComment comment = new StubComment("ok", sameAsAuthorButNotUser);
+
+        // Act + Assert
+        assertThrows(IllegalOperationException.class, () -> post.addComment(comment));
+    }
+
+    @Test
+    @DisplayName("ROBUST: Kommentar löschen mit FakeUser, der dem echten Autor entspricht")
+    void removeComment_robust_sollMitFakeUserAlsAutorLoeschenDuerfen() throws Exception {
+        // Arrange
+        Comment comment = new Comment("ok", user);
+        post.addComment(comment);
+
+        IUser sameAsUserButNotUser = new FakeUser("Erika", "Muster", "erika@muster.de");
+
+        // Act
+        post.removeComment(sameAsUserButNotUser, comment);
+
+        // Assert
+        assertEquals(0, post.getComments().size());
     }
 }

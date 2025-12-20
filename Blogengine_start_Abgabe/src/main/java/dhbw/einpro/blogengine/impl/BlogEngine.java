@@ -2,8 +2,9 @@ package dhbw.einpro.blogengine.impl;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
-import java.util.TreeSet;
+import java.util.Objects;
 
 import dhbw.einpro.blogengine.exceptions.DuplicateEmailException;
 import dhbw.einpro.blogengine.exceptions.DuplicateUserException;
@@ -14,65 +15,41 @@ import dhbw.einpro.blogengine.interfaces.IBlogEngine;
 import dhbw.einpro.blogengine.interfaces.IPost;
 import dhbw.einpro.blogengine.interfaces.IUser;
 
-/**
- * Klasse implementiert die Funktionalität einer Blog Engine.
- */
-public class BlogEngine implements IBlogEngine
-{
-    /** Alle im Blog registrierten Benutzer. */
-    private final TreeSet<IUser> users;
+public class BlogEngine implements IBlogEngine {
 
-    /** Alle im Blog erstellten Posts. */
-    private final List<IPost> posts;
-
-    /** Nächste zu vergebende Post-Id (beginnend bei 1). */
+    private final List<IUser> users = new ArrayList<>();
+    private final List<IPost> posts = new ArrayList<>();
     private int nextPostId = 1;
 
-    /**
-     * Erzeugt eine neue, leere BlogEngine.
-     */
-    public BlogEngine()
-    {
-        // Benutzer werden nach Nachname, Vorname und Email sortiert
-        this.users = new TreeSet<>(
-                Comparator.comparing(IUser::getLastName, Comparator.nullsFirst(String::compareTo))
-                        .thenComparing(IUser::getFirstName, Comparator.nullsFirst(String::compareTo))
-                        .thenComparing(IUser::getEmail, Comparator.nullsFirst(String::compareTo)));
-        this.posts = new ArrayList<>();
+    private static boolean sameUser(IUser a, IUser b) {
+        if (a == b) return true;
+        if (a == null || b == null) return false;
+        return Objects.equals(a.getEmail(), b.getEmail())
+                && Objects.equals(a.getFirstName(), b.getFirstName())
+                && Objects.equals(a.getLastName(), b.getLastName());
     }
 
-    /**
-     * Liefert die Anzahl der Benutzer im Blog-System.
-     */
     @Override
-    public int size()
-    {
+    public int size() {
         return users.size();
     }
 
-    /**
-     * Fügt einen neuen Benutzer zum Blog-System hinzu.
-     */
     @Override
-    public boolean addUser(IUser p_user) throws DuplicateEmailException, DuplicateUserException
-    {
-        if (p_user == null)
-        {
-            return false;
+    public boolean addUser(IUser p_user) throws DuplicateEmailException, DuplicateUserException {
+        if (p_user == null) return false;
+
+        // DuplicateUser (nach Spezifikation: Email+Vorname+Nachname)
+        if (containsUser(p_user)) {
+            throw new DuplicateUserException("Benutzer ist bereits registriert.");
         }
 
-        // Prüfen, ob der User bereits existiert (Gleichheit nach equals)
-        if (containsUser(p_user))
-        {
-            throw new DuplicateUserException("Benutzer ist bereits im Blog-System registriert.");
-        }
-
-        // Prüfen, ob die E-Mail-Adresse bereits vergeben ist
-        for (IUser existing : users)
-        {
-            if (existing.getEmail() != null && existing.getEmail().equals(p_user.getEmail()))
-            {
-                throw new DuplicateEmailException("E-Mail-Adresse ist bereits vergeben.");
+        // DuplicateEmail (Email soll eindeutig sein)
+        String email = p_user.getEmail();
+        if (email != null) {
+            for (IUser u : users) {
+                if (email.equals(u.getEmail())) {
+                    throw new DuplicateEmailException("E-Mail-Adresse ist bereits vergeben.");
+                }
             }
         }
 
@@ -80,34 +57,26 @@ public class BlogEngine implements IBlogEngine
         return true;
     }
 
-    /**
-     * Entfernt einen Benutzer aus dem Blog-System.
-     */
     @Override
-    public boolean removeUser(IUser p_user)
-    {
-        if (p_user == null)
-        {
-            return false;
+    public boolean removeUser(IUser p_user) {
+        if (p_user == null) return false;
+
+        for (Iterator<IUser> it = users.iterator(); it.hasNext();) {
+            if (sameUser(it.next(), p_user)) {
+                it.remove();
+                return true;
+            }
         }
-        return users.remove(p_user);
+        return false;
     }
 
-    /**
-     * Fügt einen Post zum Blog-System hinzu und nummeriert diesen.
-     */
     @Override
-    public int addPost(IPost p_post) throws UserNotFoundException
-    {
-        if (p_post == null)
-        {
-            return -1;
-        }
+    public int addPost(IPost p_post) throws UserNotFoundException {
+        if (p_post == null) return -1;
 
         IUser author = p_post.getAuthor();
-        if (author == null || !containsUser(author))
-        {
-            throw new UserNotFoundException("Autor des Posts ist nicht im Blog-System registriert.");
+        if (author == null || !containsUser(author)) {
+            throw new UserNotFoundException("Autor ist nicht registriert.");
         }
 
         int id = nextPostId++;
@@ -116,140 +85,83 @@ public class BlogEngine implements IBlogEngine
         return id;
     }
 
-    /**
-     * Entfernt einen Post aus dem Blog-System.
-     */
     @Override
     public void removePost(IUser p_author, int p_postId)
-            throws PostNotFoundException, IllegalOperationException
-    {
-        IPost post = findPostById(p_postId);
-        if (post == null)
-        {
-            throw new PostNotFoundException("Post mit Id " + p_postId + " wurde nicht gefunden.");
-        }
+            throws PostNotFoundException, IllegalOperationException {
 
-        // Nur der tatsächliche Autor darf den Post löschen
-        if (p_author == null || post.getAuthor() == null || !post.getAuthor().equals(p_author))
-        {
-            throw new IllegalOperationException("Nur der Autor des Posts darf diesen löschen.");
+        IPost post = findPostById(p_postId);
+        if (post == null) throw new PostNotFoundException("Post nicht gefunden.");
+
+        if (!sameUser(post.getAuthor(), p_author)) {
+            throw new IllegalOperationException("Nur der Autor darf den Post löschen.");
         }
 
         posts.remove(post);
     }
 
-    /**
-     * Liefert eine Liste aller Posts, die im Blog-System erstellt wurden.
-     */
     @Override
-    public List<IPost> getPosts()
-    {
-        // defensive Kopie zurückgeben
+    public List<IPost> getPosts() {
         return new ArrayList<>(posts);
     }
 
-    /**
-     * Liefert alle Posts eines bestimmten Autors.
-     */
     @Override
-    public List<IPost> findPostsByAuthor(IUser p_author)
-    {
+    public List<IPost> findPostsByAuthor(IUser p_author) {
         List<IPost> result = new ArrayList<>();
-        if (p_author == null)
-        {
-            return result;
-        }
+        if (p_author == null) return result;
 
-        for (IPost post : posts)
-        {
-            if (p_author.equals(post.getAuthor()))
-            {
-                result.add(post);
-            }
+        for (IPost p : posts) {
+            if (sameUser(p_author, p.getAuthor())) result.add(p);
         }
         return result;
     }
 
-    /**
-     * Liefert den Post mit einer bestimmten Id oder null, falls nicht vorhanden.
-     */
     @Override
-    public IPost findPostById(int p_postId)
-    {
-        for (IPost post : posts)
-        {
-            if (post.getId() == p_postId)
-            {
-                return post;
-            }
+    public IPost findPostById(int p_postId) {
+        for (IPost p : posts) {
+            if (p.getId() == p_postId) return p;
         }
         return null;
     }
 
-    /**
-     * Prüft, ob ein Post mit der angegebenen Id existiert.
-     */
     @Override
-    public boolean containsPost(int p_postId)
-    {
+    public boolean containsPost(int p_postId) {
         return findPostById(p_postId) != null;
     }
 
-    /**
-     * Prüft, ob ein bestimmter Benutzer im Blog-System existiert.
-     */
     @Override
-    public boolean containsUser(IUser user)
-    {
-        if (user == null)
-        {
-            return false;
+    public boolean containsUser(IUser user) {
+        if (user == null) return false;
+
+        for (IUser u : users) {
+            if (sameUser(u, user)) return true;
         }
-        // TreeSet.contains nutzt den Comparator, der auf den relevanten Feldern basiert
-        return users.contains(user);
+        return false;
     }
 
-    /**
-     * Liefert den Benutzer mit der angegebenen E-Mail-Adresse.
-     */
     @Override
-    public IUser findUserByEmail(String p_email) throws UserNotFoundException
-    {
-        for (IUser user : users)
-        {
-            if (user.getEmail() != null && user.getEmail().equals(p_email))
-            {
-                return user;
-            }
+    public IUser findUserByEmail(String p_email) throws UserNotFoundException {
+        if (p_email == null) throw new UserNotFoundException("Benutzer nicht gefunden.");
+
+        for (IUser u : users) {
+            if (p_email.equals(u.getEmail())) return u;
         }
-        throw new UserNotFoundException("Kein Benutzer mit der Email-Adresse " + p_email + " gefunden.");
+        throw new UserNotFoundException("Benutzer nicht gefunden.");
     }
 
-    /**
-     * Sortiert die Posts anhand ihres Titels.
-     */
     @Override
-    public List<IPost> sortPostsByTitle()
-    {
+    public List<IPost> sortPostsByTitle() {
         List<IPost> sorted = new ArrayList<>(posts);
         sorted.sort(Comparator.comparing(IPost::getTitle, Comparator.nullsFirst(String::compareTo)));
         return sorted;
     }
 
-    /**
-     * Liefert alle Posts mit einem gegebenen Titel.
-     */
     @Override
-    public List<IPost> findPostsByTitle(String title)
-    {
+    public List<IPost> findPostsByTitle(String title) {
         List<IPost> result = new ArrayList<>();
-        for (IPost post : posts)
-        {
-            String postTitle = post.getTitle();
-            if (postTitle != null && postTitle.equals(title))
-            {
-                result.add(post);
-            }
+        if (title == null) return result;
+
+        for (IPost p : posts) {
+            if (title.equals(p.getTitle())) result.add(p);
         }
         return result;
     }
