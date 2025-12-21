@@ -4,29 +4,21 @@ import java.util.Objects;
 
 import dhbw.einpro.blogengine.interfaces.IUser;
 
-/**
- * Klasse enthält Informationen zu einem Benutzer des Blog-Systems
- */
+
 public class User implements Comparable<User>, IUser {
 
     private String email;
     private String firstName;
     private String lastName;
 
-    /**
-     * Erzeugt einen neuen Benutzer.
-     *
-     * @param firstName Vorname
-     * @param lastName  Nachname
-     * @param email     E-Mail-Adresse
-     */
+
     public User(String firstName, String lastName, String email) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
     }
 
-    // --- IUser-Methoden ---
+
 
     @Override
     public String getEmail() {
@@ -58,12 +50,6 @@ public class User implements Comparable<User>, IUser {
         this.lastName = p_lastName;
     }
 
-    // --- Comparable<User> ---
-
-    /**
-     * Vergleicht diese Instanz mit einem anderen Benutzer.
-     * Reihenfolge: Nachname, Vorname, E-Mail-Adresse.
-     */
     @Override
     public int compareTo(User o) {
         if (o == null) {
@@ -94,11 +80,10 @@ public class User implements Comparable<User>, IUser {
         if (b == null) {
             return 1;
         }
-        // case-sensitiv, damit compareTo == 0 <=> equals
+
         return a.compareTo(b);
     }
 
-    // --- equals / hashCode nach Javadoc (Email, Nachname, Vorname) ---
 
     @Override
     public boolean equals(Object obj) {

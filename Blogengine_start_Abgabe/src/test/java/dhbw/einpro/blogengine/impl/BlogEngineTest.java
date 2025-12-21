@@ -16,8 +16,7 @@ class BlogEngineTest {
 
     private BlogEngine blogEngine;
 
-    // FakeUser: zweite IUser-Implementierung (nicht User),
-    // damit wir Spezifikations-Gleichheit (Email+Vorname+Nachname) testen.
+
     private static final class FakeUser implements IUser {
         private String firstName;
         private String lastName;
@@ -42,11 +41,7 @@ class BlogEngineTest {
         blogEngine = new BlogEngine();
     }
 
-    /**
-     * Helfer, falls die Reihenfolge der Validierungen nicht spezifiziert ist
-     * (z.B. DuplicateUser vs DuplicateEmail).
-     * Kein try/catch im Testkörper nötig.
-     */
+
     private static void assertThrowsAnyOf(Class<? extends Throwable> a,
                                           Class<? extends Throwable> b,
                                           Executable executable) {

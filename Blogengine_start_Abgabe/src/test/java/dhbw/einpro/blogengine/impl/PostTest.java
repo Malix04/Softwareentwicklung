@@ -33,17 +33,13 @@ class PostTest {
         post = new Post("Titel", "Inhalt", author, engine);
     }
 
-    // Helper: Java 11 kompatibles repeat ohne String.repeat()
     private static String repeatChar(char c, int n) {
         StringBuilder sb = new StringBuilder(n);
         for (int i = 0; i < n; i++) sb.append(c);
         return sb.toString();
     }
 
-    /**
-     * StubComment: damit wir >256 testen können, ohne dass Comment() schon vorher wirft.
-     * Wichtig: MUSS exakt zu IComment passen -> kein getPost()!
-     */
+
     private static final class StubComment implements IComment {
         private static final long serialVersionUID = 1L;
 
@@ -84,10 +80,7 @@ class PostTest {
         }
     }
 
-    /**
-     * Schritt 4: FakeUser als zweite IUser-Implementierung (nicht dhbw...impl.User),
-     * um sicherzustellen, dass eure Logik NICHT auf equals() basiert.
-     */
+
     private static final class FakeUser implements IUser {
         private String firstName;
         private String lastName;
@@ -165,7 +158,7 @@ class PostTest {
         assertEquals(10, post.getScore());
     }
 
-    // ------- Schritt 4 Robustheitstests (FakeUser) -------
+
 
     @Test
     @DisplayName("ROBUST: like mit FakeUser (gleiche Daten) -> kein Duplikat")

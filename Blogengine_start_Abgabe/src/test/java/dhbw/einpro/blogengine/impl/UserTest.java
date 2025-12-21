@@ -24,7 +24,7 @@ class UserTest {
     @Test
     @DisplayName("compareTo sortiert nach Nachname -> Vorname -> Email")
     void compareTo_sollNachNameVornameEmailSortieren() {
-        // Arrange (Users kommen aus setUp)
+        // Arrange (Users aus setUp)
 
         // Act
         int result1 = user1.compareTo(user2);
